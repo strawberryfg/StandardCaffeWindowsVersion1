@@ -87,6 +87,8 @@ void libxyzLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         }
       }
     }
+    if (sum == 0)
+      loss += max_error;
   }
   top[0]->mutable_cpu_data()[0] = loss / batSize;
   if (sum)
