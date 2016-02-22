@@ -835,9 +835,7 @@ void libHandModelLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 }
 
 
-#ifdef CPU_ONLY
-STUB_GPU(libHandModelLayer);
-#endif
+
 
 INSTANTIATE_CLASS(libHandModelLayer);
 REGISTER_LAYER_CLASS(libHandModel);

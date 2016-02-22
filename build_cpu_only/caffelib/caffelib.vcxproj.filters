@@ -300,6 +300,15 @@
     <ClCompile Include="..\..\src\caffe\layers\multi_label_image_data_layer.cpp">
       <Filter>layers</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\caffe\layers\libdof_limit_loss.cpp">
+      <Filter>layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\caffe\layers\libhand_model_layer.cpp">
+      <Filter>layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\caffe\layers\libxyz_loss.cpp">
+      <Filter>layers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\caffe\proto\caffe.pb.h">
@@ -616,6 +625,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\caffe\layers\base_data_layer.hpp">
       <Filter>header\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\caffe\deep_model_layers.hpp">
+      <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

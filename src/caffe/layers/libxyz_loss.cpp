@@ -10,6 +10,14 @@ namespace caffe {
 template <typename Dtype>
 void libxyzLossLayer<Dtype>::LayerSetUp(
   const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+  const int joint_num_[3] = { 31, 14, 16 };
+  const int dict_[3][31] = {
+    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 },
+    { 0, 3, 5, 8, 10, 13, 15, 18, 24, 25, 26, 28, 29, 30, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
+    { 24, 28, 29, 30, 19, 17, 15, 14, 12, 10, 9, 7, 5, 4, 2, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 }
+  };
+  memcpy(joint_num, joint_num_, sizeof(joint_num_));
+  memcpy(dict, dict_, sizeof(dict_));
   if (this->layer_param_.loss_weight_size() == 0) {
     this->layer_param_.add_loss_weight(Dtype(1));
   }
@@ -93,9 +101,6 @@ void libxyzLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(libxyzLossLayer);
-#endif
 
 INSTANTIATE_CLASS(libxyzLossLayer);
 REGISTER_LAYER_CLASS(libxyzLoss);

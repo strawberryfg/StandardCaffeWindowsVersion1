@@ -10,6 +10,13 @@ namespace caffe {
 template <typename Dtype>
 void libDofLimitLossLayer<Dtype>::LayerSetUp(
   const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+  FILE *fin = fopen("constraint.txt", "r");
+	for (int i = 0; i < 55; i++) 
+	{
+    fscanf(fin, "%f", &dofLimitLow[i]);
+    fscanf(fin, "%f", &dofLimitUp[i]);
+	}
+  fclose(fin);
   if (this->layer_param_.loss_weight_size() == 0) {
     this->layer_param_.add_loss_weight(Dtype(1));
   }
@@ -65,9 +72,6 @@ void libDofLimitLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(libDofLimitLossLayer);
-#endif
 
 INSTANTIATE_CLASS(libDofLimitLossLayer);
 REGISTER_LAYER_CLASS(libDofLimitLoss);
