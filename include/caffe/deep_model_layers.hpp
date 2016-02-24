@@ -13,28 +13,6 @@
 
 namespace caffe {
 
-template <typename Dtype>
-class ScaleLayer : public Layer<Dtype> {
- public:
-  explicit ScaleLayer(const LayerParameter& param)
-      : Layer<Dtype>(param) {}
-  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-
-  virtual inline const char* type() const { return "Scale"; }
-  virtual inline int ExactNumBottomBlobs() const { return 2; }
-  virtual inline int ExactNumTopBlobs() const { return 1; }
-
- protected:
-  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
-
-};
-
 
 template <typename Dtype>
 class libxyzLossLayer : public LossLayer<Dtype> {
@@ -57,8 +35,10 @@ public:
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
       
   int model;
+  int sum;
   int joint_num[3];
   int dict[3][31];
+  vector<int> max_index;
 };
 
 template <typename Dtype>

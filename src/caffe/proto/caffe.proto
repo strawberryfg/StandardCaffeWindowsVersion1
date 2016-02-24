@@ -409,6 +409,7 @@ message LayerParameter {
 
 message Libxyz_lossParameter {
   optional string model = 1 [default = "LIBHAND"];
+  optional string mode = 2 [default = "SUM"];
 }
 
 message LibhandParameter {
