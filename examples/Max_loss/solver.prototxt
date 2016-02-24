@@ -8,4 +8,4 @@ display:100
 max_iter: 100000
 snapshot: 10000
 snapshot_prefix: "models/"
-solver_mode: CPU
+solver_mode: GPU
