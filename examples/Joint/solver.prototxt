@@ -3,9 +3,10 @@ test_interval: 500
 net: "DeepModel.prototxt"
 base_lr: 0.05
 momentum: 0.9
+weight_decay: 0.0005
 lr_policy: "inv"
 display:100
-max_iter: 100000
+max_iter: 300000
 snapshot: 10000
 snapshot_prefix: "models/"
 solver_mode: GPU

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 max_show = 0.035
 
-f = open('log/INFO2016-02-25T20-56-39.txt', 'r')
+f = open('log/INFO2016-02-27T10-44-29.txt', 'r')
 train_loss = []
 val_loss = []
 for line in f:
@@ -20,7 +20,7 @@ for line in f:
             val_loss.append(float(res))        
 f.close()
 
-f = open('log/INFO2016-02-25T20-56-39.txt', 'r')
+f = open('log/INFO2016-02-27T10-44-29.txt', 'r')
 train_loss_no_cst = []
 val_loss_no_cst = []
 for line in f:

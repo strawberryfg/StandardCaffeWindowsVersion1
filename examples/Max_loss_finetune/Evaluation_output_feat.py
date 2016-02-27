@@ -4,7 +4,7 @@ sys.path.insert(0, '/usr/local/lib/python2.7/site-packages')
 import caffe
 caffe.set_mode_gpu()
 net = caffe.Net( 'DeepModel.prototxt',
-                'models/_iter_300000.caffemodel',
+                'models/_iter_100000.caffemodel',
                 caffe.TEST)
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,7 +18,6 @@ from numpy import *
 from matplotlib import pyplot
 import datetime
 import cv2
-import cPickle
 for k, v in net.blobs.items():
     print k, v.data.shape
     
@@ -29,10 +28,14 @@ test_num = 8252
 batch_size = (net.blobs['depth'].shape)[0]
 iters = test_num / batch_size
 error_per_frame = np.zeros(iters * batch_size)
-out_avg_thresh = -1
+out_avg_thresh = 10000
 thresh = np.zeros(100)
 joint_error = np.zeros(J)
 vis_online = False
+output_feature = True
+
+feats = np.zeros((test_num, 55), dtype = 'float32')
+gts = np.zeros((test_num, 93), dtype = 'float32')
 
 sum = 0
 a = datetime.datetime.now()
@@ -65,8 +68,8 @@ for t in range(iters):
         if error_avg > out_avg_thresh:
             img = (net.blobs['depth'].data[i][0] + 1) / 2 * 255
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-            for i in range(J):
-                cv2.circle(img, (int((x[i] + 1) / 2 * 128), int((- y[i] + 1) / 2 * 128)), 2, (255, 0, 0), 2)
+            for l in range(J):
+                cv2.circle(img, (int((x[l] + 1) / 2 * 128), int((- y[l] + 1) / 2 * 128)), 2, (255, 0, 0), 2)
                 #cv2.circle(img, (int((gtx[i] + 1) / 2 * 128), int((-gty[i] + 1) / 2 * 128)), 2, (0, 0, 255), 2)
                 cv2.imwrite('output/{:d}_{:.4f}.png'.format(img_id, error_avg), img)
                 #cv2.imwrite('output/{:d}.png'.format(I * BATCHSIZE + see), img)
@@ -79,6 +82,10 @@ for t in range(iters):
             ax.scatter(z,x,y)
             ax.scatter(gtz, gtx, gty, c = 'r')
             plt.show()
+            
+        if output_feature:
+            feats[img_id] = net.blobs['libdof'].data[i] 
+            gts[img_id] = net.blobs['joint_xyz'].data[i]
     print 'iter = ', t, ', current_error = ', sum / (batch_size * (t + 1))
 
 
@@ -89,6 +96,21 @@ tm = 1000. * c.seconds / (batch_size * iters)
 print 'average time = ',tm , 'ms ', 'fps = ', 1000. / tm 
 print 'average error =',  sum / (batch_size * iters)
 
+if output_feature:
+    n = len(feats)
+    out = open('ours_feats.txt', 'w')
+    for i in range(n):
+        for j in range(55):
+            out.write('{:.6f} '.format(feats[i, j]))
+        out.write('\n')
+    out.close()
+
+    out = open('gts.txt', 'w')
+    for i in range(n):
+        for j in range(93):
+            out.write('{:.6f} '.format(gts[i, j]))
+        out.write('\n')
+    out.close()
 
 fig_thresh = plt.figure()
 ax_thresh = fig_thresh.add_subplot(111)
@@ -112,7 +134,7 @@ plt.title("Mean Error Per Joints")
 plt.ylabel("Error(mm)")
 fig_joint_error.savefig('mean_error_per_joint.png')
 
-f = open('res.pkl', 'w')
-cPickle.dump((thresh / (1.0 * batch_size * iters), joint_error), f)
-f.close()
+import cPickle 
+cPickle.dump((thresh / (1.0 * batch_size * iters), joint_error), open('param.pkl', 'w'))
+
 #plt.show()

@@ -4,7 +4,7 @@ sys.path.insert(0, '/usr/local/lib/python2.7/site-packages')
 import caffe
 caffe.set_mode_gpu()
 net = caffe.Net( 'DeepModel.prototxt',
-                'models/_iter_300000.caffemodel',
+                'models/_iter_10000.caffemodel',
                 caffe.TEST)
 import numpy as np
 import matplotlib.pyplot as plt

@@ -2,9 +2,9 @@ import numpy as np
 from matplotlib import pyplot
 import matplotlib.pyplot as plt
 
-max_show = 0.035
+max_show = 0.06
 
-f = open('log/INFO2016-02-25T20-56-39.txt', 'r')
+f = open('logs/log.txt.2016-01-31_01-53-54', 'r')
 train_loss = []
 val_loss = []
 for line in f:
@@ -20,7 +20,8 @@ for line in f:
             val_loss.append(float(res))        
 f.close()
 
-f = open('log/INFO2016-02-25T20-56-39.txt', 'r')
+f = open('../test_solver/logs/log.txt.2016-01-29_22-51-39', 'r')
+f = open('../Free/logs/log.txt.2016-01-31_14-48-43', 'r')
 train_loss_no_cst = []
 val_loss_no_cst = []
 for line in f:
