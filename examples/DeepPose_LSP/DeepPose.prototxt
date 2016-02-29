@@ -30,7 +30,7 @@ layer {
 layer {
   name: "conv1"
   type: "Convolution"
-  bottom: "data"
+  bottom: "img"
   top: "conv1"
   param {
     lr_mult: 1
@@ -344,7 +344,7 @@ layer {
     decay_mult: 0
   }
   inner_product_param {
-    num_output: 15
+    num_output: 30
     weight_filler {
       type: "gaussian"
       std: 0.01
@@ -360,6 +360,6 @@ layer {
   name: "loss"
   type: "EuclideanLoss"
   bottom: "fc8_DeepPose"
-  bottom: "label"
+  bottom: "joint"
   top: "loss"
 }
