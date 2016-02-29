@@ -307,7 +307,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 153 (last added: libhand_param)
+// LayerParameter next available layer-specific ID: 152 (last added: DeepHandModelxyz_loss_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -403,18 +403,15 @@ message LayerParameter {
   optional EltwiseAffineParameter eltwise_affine_param = 145;
   optional SubRegionParameter sub_region_param = 146;
   optional NoiseParameter noise_param = 147;
-  optional Libxyz_lossParameter libxyz_loss_param = 151;
-  optional LibhandParameter libhand_param = 152;  
+  optional DeepHandModelxyz_lossParameter deep_hand_model_xyz_loss_param = 151;
+  
 }
 
-message Libxyz_lossParameter {
+message DeepHandModelxyz_lossParameter {
   optional string model = 1 [default = "LIBHAND"];
   optional string mode = 2 [default = "SUM"];
 }
 
-message LibhandParameter {
-  optional float scale = 1 [default = 1];
-}
 
 // Message that stores parameters used to apply transformation
 // to the data layer's data

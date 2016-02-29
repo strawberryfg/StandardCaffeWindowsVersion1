@@ -1,6 +1,5 @@
 #ifndef CAFFE_CUSTOM_LAYERS_HPP_
 #define CAFFE_CUSTOM_LAYERS_HPP_
-
 #include <string>
 #include <utility>
 #include <vector>
@@ -12,7 +11,8 @@
 #include "caffe/layers/neuron_layer.hpp"
 #include "caffe/proto/caffe.pb.h"
 
-namespace caffe {
+	namespace caffe {
+	
 	/**
 	* @brief Takes at least two Blob%s and concatenates them along either the num
 	*        or channel dimension, outputting the result.
