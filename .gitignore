@@ -111,3 +111,5 @@ MANIFEST-*
 *.png
 
 Inceptionism
+
+*.vcxproj

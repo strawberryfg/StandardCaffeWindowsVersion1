@@ -215,7 +215,7 @@ layer {
     lr_mult: 1
   }
   inner_product_param {
-    num_output: 55
+    num_output: 47
     weight_filler {
       type: "xavier"
     }
@@ -237,10 +237,10 @@ layer {
 
 
 layer {
-  name: "libdoflimitloss"
+  name: "dofconstraintloss"
   type: "DeepHandModelDofLimitLoss"
   bottom: "libdof"
-  top: "dofconstraintloss"
+  top: "dofconstraint_loss"
   loss_weight: 0
   include {
     phase: TRAIN
@@ -254,8 +254,11 @@ layer{
   type:"DeepHandModelxyzLoss"
   bottom:"libxyz"
   bottom:"joint_xyz"
-  top:"libxyzloss"
+  top:"joint_loss"
   loss_weight:1
+  deep_hand_model_xyz_loss_param {
+    model:"NYU"
+  }
 }
 
 

@@ -6,7 +6,7 @@ layer {
   top: "joint"
   hdf5_data_param {
     source: "train.txt"
-	batch_size: 256
+	batch_size: 64
   }
   include {
     phase: TRAIN
@@ -20,7 +20,7 @@ layer {
   top: "joint"
   hdf5_data_param {
     source: "test.txt"
-	batch_size: 100
+	batch_size: 32
   }
   include {
     phase: TEST
@@ -41,7 +41,7 @@ layer {
     decay_mult: 0
   }
   convolution_param {
-    num_output: 96
+    num_output: 32
     kernel_size: 11
     stride: 4
     weight_filler {
@@ -96,7 +96,7 @@ layer {
     decay_mult: 0
   }
   convolution_param {
-    num_output: 256
+    num_output: 64
     pad: 2
     kernel_size: 5
     group: 2
@@ -152,7 +152,7 @@ layer {
     decay_mult: 0
   }
   convolution_param {
-    num_output: 384
+    num_output: 128
     pad: 1
     kernel_size: 3
     weight_filler {
@@ -185,7 +185,7 @@ layer {
     decay_mult: 0
   }
   convolution_param {
-    num_output: 384
+    num_output: 128
     pad: 1
     kernel_size: 3
     group: 2
@@ -363,3 +363,4 @@ layer {
   bottom: "joint"
   top: "loss"
 }
+
