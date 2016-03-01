@@ -1,3 +1,0 @@
-D:\Datasets\DeepModel_data\NYU\test_1_data_0.h5
-D:\Datasets\DeepModel_data\NYU\test_2_data_0.h5
-

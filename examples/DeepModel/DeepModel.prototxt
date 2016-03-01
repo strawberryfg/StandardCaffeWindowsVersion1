@@ -229,7 +229,7 @@ layer {
 
 layer {
   name: "libhandmodel"
-  type: "libHandModel"
+  type: "DeepHandModel"
   bottom: "libdof"
   top: "libxyz"
 }
@@ -238,7 +238,7 @@ layer {
 
 layer {
   name: "libdoflimitloss"
-  type: "libDofLimitLoss"
+  type: "DeepHandModelDofLimitLoss"
   bottom: "libdof"
   top: "dofconstraintloss"
   loss_weight: 0
@@ -251,14 +251,11 @@ layer {
 
 layer{
   name:"libxyzloss"
-  type:"libxyzLoss"
+  type:"DeepHandModelxyzLoss"
   bottom:"libxyz"
   bottom:"joint_xyz"
   top:"libxyzloss"
   loss_weight:1
-  libxyz_loss_param {
-    model:"NYU"
-  }
 }
 
 
