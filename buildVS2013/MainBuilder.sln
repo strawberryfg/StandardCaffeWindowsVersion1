@@ -10,6 +10,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "caffe", "MSVC\MainBuilder.v
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "caffelib", "caffelib\caffelib.vcxproj", "{63A79297-9CC4-4081-ADAC-7F40CE965C95}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pycaffe", "python\pycaffe.vcxproj", "{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -50,6 +52,20 @@ Global
 		{63A79297-9CC4-4081-ADAC-7F40CE965C95}.Release|Win32.Build.0 = Release|Win32
 		{63A79297-9CC4-4081-ADAC-7F40CE965C95}.Release|x64.ActiveCfg = Release|x64
 		{63A79297-9CC4-4081-ADAC-7F40CE965C95}.Release|x64.Build.0 = Release|x64
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Debug|Any CPU.ActiveCfg = Debug|Win32
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Debug|Win32.ActiveCfg = Debug|Win32
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Debug|Win32.Build.0 = Debug|Win32
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Debug|x64.ActiveCfg = Debug|x64
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Debug|x64.Build.0 = Debug|x64
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Release|Any CPU.ActiveCfg = Release|Win32
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Release|Win32.ActiveCfg = Release|Win32
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Release|Win32.Build.0 = Release|Win32
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Release|x64.ActiveCfg = Release|x64
+		{290244F8-8BD6-4AB6-8796-A3F3AB60A2F9}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
