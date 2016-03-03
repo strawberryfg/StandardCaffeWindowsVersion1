@@ -10,7 +10,7 @@ if __name__ == '__main__':
 	else:
 		model = 'models/_iters_300000.caffemodel'
 	net = caffe.Net( 'DeepModel.prototxt',
-					,
+					model,
 					caffe.TEST)
 	import numpy as np
 	import matplotlib.pyplot as plt
