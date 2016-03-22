@@ -4,7 +4,7 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/deep_hand_model_layers.hpp"
-
+#include "caffe/HandDefine.h"
 namespace caffe {
 
 template <typename Dtype>
@@ -14,16 +14,27 @@ void DeepHandModelDofLimitLossLayer<Dtype>::LayerSetUp(
     this->layer_param_.add_loss_weight(Dtype(1));
   }
   C_ = 1;
-  FILE *fin = fopen("configuration/dofLimitLow.txt", "r");
-  for (int i = 0; i < 47; i++)
+  FILE *fin = fopen("configuration/DofLimitLow.txt", "r");
+  for (int i = 0; i < ParamNum; i++)
   {
 	  fscanf(fin, "%f", &dofLimitLow[i]);
   }
   fclose(fin);
-  fin = fopen("configuration/dofLimitUp.txt", "r");
-  for (int i = 0; i < 47; i++)
+  fin = fopen("configuration/DofLimitUp.txt", "r");
+  for (int i = 0; i < ParamNum; i++)
   {
 	  fscanf(fin, "%f", &dofLimitUp[i]);
+  }
+  fclose(fin);
+  fin = fopen("configuration/DofLimitId.txt", "r");
+  for (int i = 0; i < ParamNum; i++) isIgnored[i] = 0;
+  int n;
+  fscanf(fin, "%d", &n);
+  for (int i = 0; i < n; i++)
+  {
+	  int id;
+	  fscanf(fin, "%d", &id);
+	  isIgnored[id] = 1;
   }
   fclose(fin);
 }
@@ -43,13 +54,13 @@ void DeepHandModelDofLimitLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype loss = 0;
   for (int t = 0; t < batSize; t++) {
-    int Bid = t * 47;
-    for (int i = 0; i < 47; i++) 
-      if (bottom_data[Bid + i] > dofLimitUp[i])
-        loss += (bottom_data[Bid + i] - dofLimitUp[i]) * (bottom_data[Bid + i] - dofLimitUp[i]);
-      else 
-        if (bottom_data[Bid + i] < dofLimitLow[i])
-          loss += (bottom_data[Bid + i] - dofLimitLow[i]) * (bottom_data[Bid + i] - dofLimitLow[i]);
+    int Bid = t * ParamNum;
+	for (int i = 0; i < ParamNum; i++)
+	{
+		if (isIgnored[i]) continue;
+		if (bottom_data[Bid + i] > dofLimitUp[i]) loss += (bottom_data[Bid + i] - dofLimitUp[i]) * (bottom_data[Bid + i] - dofLimitUp[i]);
+		else if (bottom_data[Bid + i] < dofLimitLow[i]) loss += (bottom_data[Bid + i] - dofLimitLow[i]) * (bottom_data[Bid + i] - dofLimitLow[i]);
+	}      
   }
   top[0]->mutable_cpu_data()[0] = C_ * loss / batSize;
 }
@@ -64,15 +75,14 @@ void DeepHandModelDofLimitLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype
   
   if (propagate_down[0]) {
     for (int t = 0; t < batSize; t++) {
-      int Bid = t * 47;
-      for (int i = 0; i < 47; i++)
-        if (bottom_data[Bid + i] > dofLimitUp[i])
-          bottom_diff[Bid + i] = top_diff * C_ * 2 * (bottom_data[Bid + i] - dofLimitUp[i]);
-        else 
-          if (bottom_data[Bid + i] < dofLimitLow[i])
-            bottom_diff[Bid + i] = top_diff * C_ * 2 * (bottom_data[Bid + i] - dofLimitLow[i]);
-          else 
-            bottom_diff[Bid + i] = 0;
+      int Bid = t * ParamNum;
+	  for (int i = 0; i < ParamNum; i++)
+	  {
+		  if (isIgnored[i]) continue;
+		  if (bottom_data[Bid + i] > dofLimitUp[i]) bottom_diff[Bid + i] = top_diff * C_ * 2 * (bottom_data[Bid + i] - dofLimitUp[i]);
+		  else if (bottom_data[Bid + i] < dofLimitLow[i]) bottom_diff[Bid + i] = top_diff * C_ * 2 * (bottom_data[Bid + i] - dofLimitLow[i]);
+		  else bottom_diff[Bid + i] = 0;
+	  }        
     }
   }
 }

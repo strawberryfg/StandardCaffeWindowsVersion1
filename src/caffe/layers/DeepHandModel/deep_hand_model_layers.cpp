@@ -1,30 +1,169 @@
 #include <algorithm>
-
-
 #include "caffe/layer.hpp"
 #include "caffe/deep_hand_model_layers.hpp"
-
+int forward_seq[31] = { 24, 25, 26, 27, 28, 29, 30, 20, 21, 22, 23, 4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 14, 13, 12, 11, 10, 19, 18, 17, 16, 15 };
+int prev_seq[31] = { -1, 24, 24, 24, 27, 28, 29, 24, 24, 24, 24, 20, 4, 3, 2, 1, 21, 9, 8, 7, 6, 22, 14, 13, 12, 11, 23, 19, 18, 17, 16 };
 namespace caffe {
 
+template <typename Dtype>
+void DeepHandModelLayer<Dtype>::SetupConstantMatrices(){
+	//finger 5: thumb
+	const_matr[wrist_left_id_in_const] = Matr(trans_y, -bonelen[bone_wrist_left], 0);
+	const_matr[wrist_middle_id_in_const] = Matr(trans_y, -bonelen[bone_wrist_middle], 0);
+	const_matr[thumb_mcp_id_in_const] = Matr(trans_y, -bonelen[bone_thumb_mcp], 0);
+	const_matr[thumb_pip_id_in_const] = Matr(trans_x, bonelen[bone_thumb_pip], 0);
+	const_matr[thumb_dip_id_in_const] = Matr(trans_x, bonelen[bone_thumb_dip], 0);
+	const_matr[thumb_tip_id_in_const] = Matr(trans_x, bonelen[bone_thumb_tip], 0);
+	for (int k = 0; k < 4; k++) //finger 1 - finger 4 (little, ring, middle, index)
+	{
+		const_matr[finger_mcp_start_id_in_const + k] = Matr(trans_y, bonelen[bone_mcp_start + k], 0);
+		const_matr[finger_base_start_id_in_const + num_of_bones_each_finger * k] = Matr(trans_y, bonelen[bone_base_start + num_of_bones_each_finger * k], 0);
+		const_matr[finger_pip_first_start_id_in_const + num_of_bones_each_finger * k] = Matr(trans_y, bonelen[bone_pip_first_start + num_of_bones_each_finger * k], 0);
+		const_matr[finger_pip_second_start_id_in_const + num_of_bones_each_finger * k] = Matr(trans_y, bonelen[bone_pip_second_start + num_of_bones_each_finger * k], 0);
+		//Two points for DIP in each finger (in NYU dataset)
+		const_matr[finger_dip_start_id_in_const + num_of_bones_each_finger * k] = Matr(trans_y, bonelen[bone_dip_start + num_of_bones_each_finger * k], 0);
+		const_matr[finger_tip_start_id_in_const + num_of_bones_each_finger * k] = Matr(trans_y, bonelen[bone_tip_start + num_of_bones_each_finger * k], 0);
+		//Two points for TIP in each finger
+	}
+}
+
+template <typename Dtype>
+void DeepHandModelLayer<Dtype>::SetupTransformation(){
+	//palm center
+
+	Homo_mat[palm_center].pb(mp(trans_x, global_trans_x_id));
+	Homo_mat[palm_center].pb(mp(trans_y, global_trans_y_id));
+	Homo_mat[palm_center].pb(mp(trans_z, global_trans_z_id)); //global translation DoF 0-2
+
+	//wrist left
+	for (int i = 0; i < Homo_mat[palm_center].size(); i++)
+		Homo_mat[wrist_left].pb(Homo_mat[palm_center][i]);
+	Homo_mat[wrist_left].pb(mp(rot_z, global_rot_z_id));
+	Homo_mat[wrist_left].pb(mp(rot_x, global_rot_x_id));
+	Homo_mat[wrist_left].pb(mp(rot_y, global_rot_y_id));
+
+	Homo_mat[wrist_left].pb(mp(rot_z, wrist_left_rot_z_id));
+	Homo_mat[wrist_left].pb(mp(rot_x, wrist_left_rot_x_id));
+	Homo_mat[wrist_left].pb(mp(rot_y, wrist_left_rot_y_id));
+	Homo_mat[wrist_left].pb(mp(Const_Matr, wrist_left_id_in_const));
+
+	//wrist middle(carpals)
+	for (int i = 0; i < Homo_mat[palm_center].size(); i++)
+		Homo_mat[wrist_middle].pb(Homo_mat[palm_center][i]);
+	Homo_mat[wrist_middle].pb(mp(rot_z, global_rot_z_id));
+	Homo_mat[wrist_middle].pb(mp(rot_x, global_rot_x_id));
+	Homo_mat[wrist_middle].pb(mp(rot_y, global_rot_y_id));
+
+	Homo_mat[wrist_middle].pb(mp(rot_z, wrist_middle_rot_z_id));
+	Homo_mat[wrist_middle].pb(mp(rot_x, wrist_middle_rot_x_id));
+	Homo_mat[wrist_middle].pb(mp(rot_y, wrist_middle_rot_y_id));
+	Homo_mat[wrist_middle].pb(mp(Const_Matr, wrist_middle_id_in_const));
+
+	//thumb MCP (wrist right metacarpals)
+	for (int i = 0; i < Homo_mat[palm_center].size(); i++)
+		Homo_mat[thumb_mcp].pb(Homo_mat[palm_center][i]);
+	Homo_mat[thumb_mcp].pb(mp(rot_z, global_rot_z_id));
+	Homo_mat[thumb_mcp].pb(mp(rot_x, global_rot_x_id));
+	Homo_mat[thumb_mcp].pb(mp(rot_y, global_rot_y_id));
+
+	Homo_mat[thumb_mcp].pb(mp(rot_z, thumb_mcp_rot_z_id));
+	Homo_mat[thumb_mcp].pb(mp(rot_x, thumb_mcp_rot_x_id));
+	Homo_mat[thumb_mcp].pb(mp(rot_y, thumb_mcp_rot_y_id));
+	Homo_mat[thumb_mcp].pb(mp(Const_Matr, thumb_mcp_id_in_const));
+
+	//thumb PIP
+	for (int i = 0; i < Homo_mat[thumb_mcp].size(); i++)
+		Homo_mat[thumb_pip].pb(Homo_mat[thumb_mcp][i]);
+	Homo_mat[thumb_pip].pb(mp(rot_z, thumb_pip_rot_z_id));
+	Homo_mat[thumb_pip].pb(mp(rot_y, thumb_pip_rot_y_id));
+	Homo_mat[thumb_pip].pb(mp(Const_Matr, thumb_pip_id_in_const));
+
+	//thumb DIP
+	for (int i = 0; i < Homo_mat[thumb_pip].size(); i++)
+		Homo_mat[thumb_dip].pb(Homo_mat[thumb_pip][i]);
+	Homo_mat[thumb_dip].pb(mp(rot_z, thumb_dip_rot_z_id));
+	Homo_mat[thumb_dip].pb(mp(Const_Matr, thumb_dip_id_in_const));
+
+	//thumb TIP
+	for (int i = 0; i < Homo_mat[thumb_dip].size(); i++)
+		Homo_mat[thumb_tip].pb(Homo_mat[thumb_dip][i]);
+	Homo_mat[thumb_tip].pb(mp(rot_z, thumb_tip_rot_z_id));
+	Homo_mat[thumb_tip].pb(mp(Const_Matr, thumb_tip_id_in_const));
+
+	//Finger 1-4
+	for (int k = 0; k < 4; k++)
+	{
+		//finger mcp
+		for (int i = 0; i < Homo_mat[palm_center].size(); i++)
+			Homo_mat[finger_mcp_start + k].pb(Homo_mat[palm_center][i]);
+		Homo_mat[finger_mcp_start + k].pb(mp(rot_z, global_rot_z_id));
+		Homo_mat[finger_mcp_start + k].pb(mp(rot_x, global_rot_x_id));
+		Homo_mat[finger_mcp_start + k].pb(mp(rot_y, global_rot_y_id));
+
+		Homo_mat[finger_mcp_start + k].pb(mp(rot_z, finger_mcp_rot_z_start_id + num_of_dof_each_mcp * k));
+		Homo_mat[finger_mcp_start + k].pb(mp(rot_x, finger_mcp_rot_x_start_id + num_of_dof_each_mcp * k));
+		Homo_mat[finger_mcp_start + k].pb(mp(rot_y, finger_mcp_rot_y_start_id + num_of_dof_each_mcp * k));
+		Homo_mat[finger_mcp_start + k].pb(mp(Const_Matr, finger_mcp_start_id_in_const + k));
+
+		//finger base
+		for (int i = 0; i < Homo_mat[finger_mcp_start + k].size(); i++)
+			Homo_mat[finger_base_start + num_of_bones_each_finger * k].pb(Homo_mat[finger_mcp_start + k][i]);
+		Homo_mat[finger_base_start + num_of_bones_each_finger * k].pb(mp(rot_z, finger_base_rot_z_start_id + num_of_dof_each_finger * k));
+		Homo_mat[finger_base_start + num_of_bones_each_finger * k].pb(mp(rot_x, finger_base_rot_x_start_id + num_of_dof_each_finger * k));
+		Homo_mat[finger_base_start + num_of_bones_each_finger * k].pb(mp(Const_Matr, finger_base_start_id_in_const + num_of_bones_each_finger * k));
+
+		//finger pip first
+		for (int i = 0; i < Homo_mat[finger_base_start + num_of_bones_each_finger * k].size(); i++)
+			Homo_mat[finger_pip_first_start + num_of_bones_each_finger * k].pb(Homo_mat[finger_base_start + num_of_bones_each_finger * k][i]);
+		Homo_mat[finger_pip_first_start + num_of_bones_each_finger * k].pb(mp(rot_x, finger_pip_rot_x_start_id + num_of_dof_each_finger * k));
+		Homo_mat[finger_pip_first_start + num_of_bones_each_finger * k].pb(mp(Const_Matr, finger_pip_first_start_id_in_const + num_of_bones_each_finger * k));
+
+		//finger pip second
+		for (int i = 0; i < Homo_mat[finger_pip_first_start + num_of_bones_each_finger * k].size(); i++)
+			Homo_mat[finger_pip_second_start + num_of_bones_each_finger * k].pb(Homo_mat[finger_pip_first_start + num_of_bones_each_finger * k][i]);
+		Homo_mat[finger_pip_second_start + num_of_bones_each_finger * k].pb(mp(Const_Matr, finger_pip_second_start_id_in_const + num_of_bones_each_finger * k));
+
+		//finger dip
+		for (int i = 0; i < Homo_mat[finger_pip_second_start + num_of_bones_each_finger * k].size(); i++)
+			Homo_mat[finger_dip_start + num_of_bones_each_finger * k].pb(Homo_mat[finger_pip_second_start + num_of_bones_each_finger * k][i]);
+		Homo_mat[finger_dip_start + num_of_bones_each_finger * k].pb(mp(rot_x, finger_dip_rot_x_start_id + num_of_dof_each_finger * k));
+		Homo_mat[finger_dip_start + num_of_bones_each_finger * k].pb(mp(Const_Matr, finger_dip_start_id_in_const + num_of_bones_each_finger * k));
+
+		//finger tip
+		for (int i = 0; i < Homo_mat[finger_dip_start + num_of_bones_each_finger * k].size(); i++)
+			Homo_mat[finger_tip_start + num_of_bones_each_finger * k].pb(Homo_mat[finger_dip_start + num_of_bones_each_finger * k][i]);
+		Homo_mat[finger_tip_start + num_of_bones_each_finger * k].pb(mp(Const_Matr, finger_tip_start_id_in_const + num_of_bones_each_finger * k));
+	}
+}
 
 template <typename Dtype>
 void DeepHandModelLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
-	//load initial rotation matrices
-	FILE *fin = fopen("configuration/InitialParameters.in", "r");
-	for (int i = 0; i < 47; i++)
+	int n;
+	FILE *fin = fopen("configuration/DofLimitId.txt", "r");
+	fscanf(fin, "%d", &n);
+	for (int i = 0; i < ParamNum; i++) islimited[i] = 0;
+	for (int i = 0; i < n; i++) { int id; fscanf(fin, "%d", &id); islimited[id] = 1; }
+	fclose(fin);
+
+	//load initial Homo_mat[i]ation matrices
+	fin = fopen("configuration/InitialParameters.txt", "r");
+	for (int i = 0; i < ParamNum; i++)
 	{
-		fscanf(fin, "%lf", &initparam[i]);
+		fscanf(fin, "%lf", &initparam[i]);		
 	}
 	fclose(fin);   
 
 	//load initial bone length(fixed number)
 	fin = fopen("configuration/BoneLength.txt", "r");
-	for (int i = 0; i < 30; i++)
+	for (int i = 0; i < BoneNum; i++)
 	{
 		fscanf(fin, "%lf", &bonelen[i]);
 	}
 	fclose(fin);
+
+	SetupConstantMatrices();
+	SetupTransformation();
 }
 
 
@@ -35,8 +174,29 @@ void DeepHandModelLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       this->layer_param_.inner_product_param().axis());
   vector<int> top_shape = bottom[0]->shape();
   top_shape.resize(axis + 1);
-  top_shape[axis] = 93;
+  top_shape[axis] = JointNum * 3;
   top[0]->Reshape(top_shape);
+}
+
+template <typename Dtype>
+void DeepHandModelLayer<Dtype>::Forward(Matr mat, int i, int Bid, int prevsize, const Dtype *bottom_data)
+{	
+	for (int r = prevsize; r < Homo_mat[i].size(); r++)
+	{
+		int opt = Homo_mat[i][r].first;
+		int id = Homo_mat[i][r].second;
+		if (opt == Const_Matr)            //constant matrix
+		{
+			mat = mat * const_matr[id];
+		}
+		else
+		{
+			if (islimited[id]) mat = mat * Matr(opt, initparam[id], 0);
+			else mat = mat * Matr(opt, bottom_data[Bid + id] + initparam[id], 0);
+		}
+	}
+	prevmat[i] = mat;
+	x[i] = prevmat[i] * Vec(0.0, 0.0, 0.0, 1.0);	
 }
 
 
@@ -47,189 +207,75 @@ void DeepHandModelLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Dtype* top_data = top[0]->mutable_cpu_data();
   const int batSize = (bottom[0]->shape())[0];  
   for (int t = 0; t < batSize; t++) {
-    int Bid = t * 47;
-    Vec x[31];
-    
-    //palm center
-	Matr rotpalm = Matr(0, bottom_data[Bid + 3], 0) * Matr(1, bottom_data[Bid + 4], 0) * Matr(2, bottom_data[Bid + 5], 0);
-	Matr transpalm = Matr(3, bottom_data[Bid], bottom_data[Bid + 1], bottom_data[Bid + 2], 0);
-	Matr rotpalminit = Matr(0, initparam[3], 0) * Matr(1, initparam[4], 0) * Matr(2, initparam[5], 0) * Matr(3, initparam[0], initparam[1], initparam[2], 0);
-	rota[0] = rotpalminit;
-	for (int i = 24; i < 25; i++)
-		x[i] = rotpalm * transpalm * rotpalminit * Vec(0.0, 0.0, 0.0, 1.0);	
-
-	//wrist left
-	Matr rotpalmrootleft = Matr(0, bottom_data[Bid + 6], 0) * Matr(1, bottom_data[Bid + 7], 0) * Matr(2, bottom_data[Bid + 8], 0);
-	Matr transpalmrootleft = Matr(3, 0.0, -bonelen[24], 0.0, 0);
-	Matr rotpalmrootleftinit = Matr(0, initparam[6], 0) * Matr(1, initparam[7], 0) * Matr(2, initparam[8], 0);
-	trans[0] = transpalmrootleft;
-	rota[1] = rotpalmrootleftinit;
-	for (int i = 25; i < 26; i++)
-		x[i] = rotpalm * transpalm * rotpalminit * rotpalmrootleft * rotpalmrootleftinit * transpalmrootleft * Vec(0.0, 0.0, 0.0, 1.0);
-	
-	//wrist middle: carpals
-	Matr rotpalmrootmiddle = Matr(0, bottom_data[Bid + 9], 0) * Matr(1, bottom_data[Bid + 10], 0) * Matr(2, bottom_data[Bid + 11], 0);
-	Matr transpalmrootmiddle = Matr(3, 0.0, -bonelen[25], 0.0, 0);
-	Matr rotpalmrootmiddleinit = Matr(0, initparam[9], 0) * Matr(1, initparam[10], 0) * Matr(2, initparam[11], 0);
-	trans[1] = transpalmrootmiddle;
-	rota[2] = rotpalmrootmiddleinit;
-	for (int i = 26; i < 27; i++)
-		x[i] = rotpalm * transpalm * rotpalminit * rotpalmrootmiddle * rotpalmrootmiddleinit * transpalmrootmiddle * Vec(0.0, 0.0, 0.0, 1.0);
-
-	//wrist right: metacarpals
-	Matr rotpalmrootright = Matr(0, bottom_data[Bid + 12], 0) * Matr(1, bottom_data[Bid + 13], 0) * Matr(2, bottom_data[Bid + 14], 0);
-	Matr transpalmrootright = Matr(3, 0.0, -bonelen[26], 0.0, 0);
-	Matr rotpalmrootrightinit = Matr(0, initparam[12], 0) * Matr(1, initparam[13], 0) * Matr(2, initparam[14], 0);
-	trans[2] = transpalmrootright;
-	rota[3] = rotpalmrootrightinit;
-	for (int i = 27; i < 28; i++)
-		x[i] = rotpalm * transpalm * rotpalminit * rotpalmrootright * rotpalmrootrightinit * transpalmrootright * Vec(0.0, 0.0, 0.0, 1.0);
-	//
-
-	//thumb (finger5joint1)
-	Matr rotthumb = Matr(1, bottom_data[Bid + 15], 0) * Matr(2, bottom_data[Bid + 16], 0);
-	Matr transthumb = Matr(3, bonelen[27], 0.0, 0.0, 0);
-	Matr rotthumbinit = Matr(1, initparam[15], 0) * Matr(2, initparam[16], 0);
-	trans[3] = transthumb;
-	rota[4] = rotthumbinit;
-	for (int i = 28; i < 29; i++)
-		x[i] = rotpalm * transpalm * rotpalminit * rotpalmrootright * rotpalmrootrightinit * transpalmrootright * rotthumb * rotthumbinit * transthumb * Vec(0.0, 0.0, 0.0, 1.0);
-
-	//finger5joint2
-	Matr rotthumbsecond = Matr(2, bottom_data[Bid + 17], 0);
-	Matr transthumbsecond = Matr(3, bonelen[28], 0.0, 0.0, 0);
-	Matr rotthumbsecondinit = Matr(2, initparam[17], 0);
-	trans[4] = transthumbsecond;
-	rota[5] = rotthumbsecondinit;
-	for (int i = 29; i < 30; i++)
-		x[i] = rotpalm * transpalm * rotpalminit * rotpalmrootright * rotpalmrootrightinit * transpalmrootright * rotthumb * rotthumbinit * transthumb * rotthumbsecond * rotthumbsecondinit * transthumbsecond * Vec(0.0, 0.0, 0.0, 1.0);
-
-	//finger5joint3
-	Matr rotthumbthird = Matr(2, bottom_data[Bid + 18], 0);
-	Matr transthumbthird = Matr(3, bonelen[29], 0.0, 0.0, 0);
-	Matr rotthumbthirdinit = Matr(2, initparam[18], 0);
-	trans[5] = transthumbthird;
-	rota[6] = rotthumbthirdinit;
-	for (int i = 30; i < 31; i++)
-		x[i] = rotpalm * transpalm * rotpalminit * rotpalmrootright * rotpalmrootrightinit * transpalmrootright * rotthumb * rotthumbinit * transthumb * rotthumbsecond * rotthumbsecondinit * transthumbsecond * rotthumbthird * rotthumbthirdinit * transthumbthird * Vec(0.0, 0.0, 0.0, 1.0);
-	//
-
-	//Finger 1-4
-	for (int k = 0; k < 4; k++)
+    int Bid = t * ParamNum;    
+	int Tid = t * JointNum * 3;
+	for (int i = 0; i < JointNum; i++)
 	{
-		//Bone/Bone.001/Bone.002/Bone.003
-		Matr rotbone = Matr(0, bottom_data[Bid + 19 + 3 * k], 0) * Matr(1, bottom_data[Bid + 20 + 3 * k], 0) * Matr(2, bottom_data[Bid + 21 + 3 * k], 0);
-		Matr transbone = Matr(3, 0.0, bonelen[20 + k], 0.0, 0);
-		Matr rotboneinit = Matr(0, initparam[19 + 3 * k], 0) * Matr(1, initparam[20 + 3 * k], 0) * Matr(2, initparam[21 + 3 * k], 0);
-		trans[6 + k] = transbone;
-		rota[7 + k] = rotboneinit;
-		for (int i = 20 + k; i < 21 + k; i++)
-			x[i] = rotpalm * transpalm * rotpalminit * rotbone * rotboneinit * transbone * Vec(0.0, 0.0, 0.0, 1.0);
-
-		//detailed fingerXjoint1(X=1..4)
-		Matr rotfingerfirst = Matr(0, bottom_data[Bid + 31 + 4 * k], 0) * Matr(2, bottom_data[Bid + 32 + 4 * k], 0);
-		Matr transfingerfirst = Matr(3, 0.0, bonelen[4 + 5 * k], 0.0, 0);
-		Matr rotfingerfirstinit = Matr(0, initparam[31 + 4 * k], 0) * Matr(2, initparam[32 + 4 * k], 0);
-		trans[10 + 5 * k] = transfingerfirst;
-		rota[11 + 3 * k] = rotfingerfirstinit;
-		for (int i = 4 + 5 * k; i > 3 + 5 * k; i--)
-			x[i] = rotpalm * transpalm * rotpalminit * rotbone * rotboneinit * transbone * rotfingerfirst * rotfingerfirstinit * transfingerfirst * Vec(0.0, 0.0, 0.0, 1.0);
-
-		//fingerXjoint2
-		Matr rotfingersecond = Matr(0, bottom_data[Bid + 33 + 4 * k], 0);
-		Matr transfingersecond = Matr(3, 0.0, bonelen[3 + 5 * k], 0.0, 0);
-		Matr rotfingersecondinit = Matr(0, initparam[33 + 4 * k], 0);
-		trans[11 + 5 * k] = Matr(3, 0.0, bonelen[3 + 5 * k], 0.0, 0);
-		trans[12 + 5 * k] = Matr(3, 0.0, bonelen[2 + 5 * k], 0.0, 0);
-		rota[12 + 3 * k] = rotfingersecondinit;
-		for (int i = 3 + 5 * k; i > 1 + 5 * k; i--)
-		{
-			if (i != 3 + 5 * k) transfingersecond = transfingersecond * Matr(3, 0.0, bonelen[2 + 5 * k], 0.0, 0);
-			x[i] = rotpalm * transpalm * rotpalminit * rotbone * rotboneinit * transbone * rotfingerfirst * rotfingerfirstinit * transfingerfirst * rotfingersecond * rotfingersecondinit * transfingersecond * Vec(0.0, 0.0, 0.0, 1.0);
-		}
-
-		//fingerXjoint3
-		Matr rotfingerthird = Matr(0, bottom_data[Bid + 34 + 4 * k], 0);
-		Matr transfingerthird = Matr(3, 0.0, bonelen[1 + 5 * k], 0.0, 0);
-		Matr rotfingerthirdinit = Matr(0, initparam[34 + 4 * k], 0);
-		trans[13 + 5 * k] = Matr(3, 0.0, bonelen[1 + 5 * k], 0.0, 0);
-		trans[14 + 5 * k] = Matr(3, 0.0, bonelen[0 + 5 * k], 0.0, 0);
-		rota[13 + 3 * k] = rotfingerthirdinit;
-		for (int i = 1 + 5 * k; i > -1 + 5 * k; i--)
-		{
-			if (i != 1 + 5 * k) transfingerthird = transfingerthird*Matr(3, 0.0, bonelen[0 + 5 * k], 0.0, 0);
-			x[i] = rotpalm * transpalm * rotpalminit * rotbone * rotboneinit * transbone * rotfingerfirst * rotfingerfirstinit * transfingerfirst * rotfingersecond * rotfingersecondinit * transfingersecond * rotfingerthird * rotfingerthirdinit * transfingerthird * Vec(0.0, 0.0, 0.0, 1.0);
-		}
-
+		int id = forward_seq[i];
+		Matr mat;
+		if (prev_seq[i] != -1) mat = prevmat[prev_seq[i]];
+		Forward(mat, id, Bid, prev_seq[i] == -1 ? 0 : Homo_mat[prev_seq[i]].size(), bottom_data);				
 	}
-
-    int Tid = t * 93;
-    for (int i = 0; i < 31; i++) {
-      top_data[Tid + i * 3] = x[i][0] ;
-      top_data[Tid + i * 3 + 1] = x[i][1] ;
-      top_data[Tid + i * 3 + 2] = x[i][2] ;
-    }
+	for (int i = 0; i < JointNum; i++)
+	{
+		top_data[Tid + i * 3] = x[i][0];
+		top_data[Tid + i * 3 + 1] = x[i][1];
+		top_data[Tid + i * 3 + 2] = x[i][2];
+	}
   }
 }
 
 template <typename Dtype>
-void DeepHandModelLayer<Dtype>::Update(std::vector<std::pair<int, int> > Rot, int i, const Dtype* bottom_data, int Bid, Vec x) {
-	
+void DeepHandModelLayer<Dtype>::Backward(int Bid, int i, std::vector<std::pair<int, int> > mat, const Dtype *bottom, Vec x)
+{
 	Vec nowx(x[0], x[1], x[2], x[3]);
-	for (int r = 0; r < Rot.size(); r++) {
-		if (Rot[r].first == -1) //constant matrices ("only translate" matrices, contains information about bone length)  stored in array "trans"
+	for (int r = mat.size() - 1; r >= 0; r--)
+	{
+		int opt = mat[r].first;
+		int id = mat[r].second;
+		if (opt == Const_Matr) //constant matrix trans
 		{
-			for (int j = 0; j < 47; j++)
+			for (int j = 0; j < ParamNum; j++)
 			{
-				f[i][j] = trans[Rot[r].second] * f[i][j]; // (AB)' here=A*B'
+				f[i][j] = const_matr[id] * f[i][j]; //trans latter'			
 			}
-			nowx = trans[Rot[r].second] * nowx;
+			nowx = const_matr[id] * nowx;
 		}
-		else if (Rot[r].first == -3) //constant matrices (initial rotation matrices, represent intial rotation degree of each joint) stored in array "rota" loaded from "configuration/InitialRotationMatrices.in"
+		else  //normal w.r.t x y z  or global translation
 		{
-			for (int j = 0; j < 47; j++)
+			if (islimited[id])
 			{
-				f[i][j] = rota[Rot[r].second] * f[i][j];
-			}
-			nowx = rota[Rot[r].second] * nowx;
-		}
-		else if (Rot[r].first == -2) //Global Translation
-		{
-			//x coordinate
-			f[i][0] = Matr(3, bottom_data[Bid + 0], bottom_data[Bid + 1], bottom_data[Bid + 2], 1)*nowx + Matr(3, bottom_data[Bid + 0], bottom_data[Bid + 1], bottom_data[Bid + 2], 0)*f[i][0]; //1 w.r.t x
-			//y coordinate
-			f[i][1] = Matr(3, bottom_data[Bid + 0], bottom_data[Bid + 1], bottom_data[Bid + 2], 2)*nowx + Matr(3, bottom_data[Bid + 0], bottom_data[Bid + 1], bottom_data[Bid + 2], 0)*f[i][1]; //2 w.r.t y
-			//z coordinate
-			f[i][2] = Matr(3, bottom_data[Bid + 0], bottom_data[Bid + 1], bottom_data[Bid + 2], 3)*nowx + Matr(3, bottom_data[Bid + 0], bottom_data[Bid + 1], bottom_data[Bid + 2], 0)*f[i][2]; //2 w.r.t z
-			for (int j = 3; j < 47; j++) //other DoF
-			{
-				f[i][j] = Matr(3, bottom_data[Bid + 0], bottom_data[Bid + 1], bottom_data[Bid + 2], 0)*f[i][j];
-			}
-			nowx = Matr(3, bottom_data[Bid + 0], bottom_data[Bid + 1], bottom_data[Bid + 2], 0)*nowx;
-		}
-		else //normal case: gradient w.r.t rotation degree about x, y, z axis
-		{
-			Matr derivative = Matr(Rot[r].first, bottom_data[Bid + Rot[r].second], 1);
-			for (int j = 0; j < 47; j++)
-			{
-				if (j == Rot[r].second)
+				for (int j = 0; j < ParamNum; j++)
 				{
-					f[i][j] = derivative * nowx + Matr(Rot[r].first, bottom_data[Bid + Rot[r].second], 0) * f[i][j]; //(AB)'=A'B+AB'
+					f[i][j] = Matr(opt, initparam[id], 0) * f[i][j];
 				}
-				else //irrelevant to the j-th dimension of DoF vector
-				{
-					f[i][j] = Matr(Rot[r].first, bottom_data[Bid + Rot[r].second], 0) * f[i][j];
-				}
+				nowx = Matr(opt, initparam[id], 0) * nowx;
 			}
-			nowx = Matr(Rot[r].first, bottom_data[Bid + Rot[r].second], 0) * nowx;
+			else
+			{
+				Matr derivative = Matr(opt, bottom[Bid + id] + initparam[id], 1);  //\theta + {\theta}_0
+				for (int j = 0; j < ParamNum; j++)
+				{
+					if (j == id)
+					{
+						f[i][j] = derivative * nowx + Matr(opt, bottom[Bid + id] + initparam[id], 0) * f[i][j];
+					}
+					else //irrelevant to the j-th dimension of DoF vector
+					{
+						f[i][j] = Matr(opt, bottom[Bid + id] + initparam[id], 0) * f[i][j];
+					}
+				}
+				nowx = Matr(opt, bottom[Bid + id] + initparam[id], 0) * nowx;
+			}
+			
 		}
 	}
 }
+
 //Key idea: (ABCD)'=A'(BCD)+A(BCD)'    (BCD)'=B'(CD)+B(CD)'   (CD)'=C'D+CD'
 //f[i][j][0] : \frac{\partial x[i][0]}{\partial d[j]}  partial of x coordinate value of joint i with regard to the j-th DoF
 //f[i][j][1] : \frac{\partial x[i][1]}{\partial d[j]}  partial of y coordinate value of joint i with regard to the j-th DoF
 //f[i][j][2] : \frac{\partial x[i][2]}{\partial d[j]}  partial of z coordinate value of joint i with regard to the j-th DoF
-
 
 template <typename Dtype>
 void DeepHandModelLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
@@ -242,302 +288,47 @@ void DeepHandModelLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 		const int batSize = (bottom[0]->shape())[0];
 
 		for (int t = 0; t < batSize; t++) {
-			int Bid = t * 47;
-
-			for (int i = 0; i < 31; i++)
+			int Bid = t * ParamNum;
+			for (int i = 0; i < JointNum; i++)
 			{
-				for (int j = 0; j < 47; j++)
+				for (int j = 0; j < ParamNum; j++)
 				{
 					f[i][j].V[0] = f[i][j].V[1] = f[i][j].V[2] = f[i][j].V[3] = 0.0; //crucial
 				}
-			}
-			//BP palm center
-			std::vector<std::pair<int, int> > Rot;
-			Rot.push_back(std::make_pair(-3, 0));
-			Rot.push_back(std::make_pair(-2, 0)); //global translation x y z	
-			Rot.push_back(std::make_pair(2, 5));
-			Rot.push_back(std::make_pair(1, 4));
-			Rot.push_back(std::make_pair(0, 3));
-			for (int i = 24; i < 25; i++) {
-				Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1.0));
-			}
-
-			//BP wrist left
-			Rot.clear();
-			Rot.push_back(std::make_pair(-1, 0));
-			Rot.push_back(std::make_pair(-3, 1));
-			Rot.push_back(std::make_pair(2, 8));
-			Rot.push_back(std::make_pair(1, 7));
-			Rot.push_back(std::make_pair(0, 6));
-			Rot.push_back(std::make_pair(-3, 0));
-			Rot.push_back(std::make_pair(-2, 0));
-			Rot.push_back(std::make_pair(2, 5));
-			Rot.push_back(std::make_pair(1, 4));
-			Rot.push_back(std::make_pair(0, 3));
-			for (int i = 25; i < 26; i++) {
-				Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-			}
-
-			//BP wrist middle(carpals)
-			Rot.clear();
-			Rot.push_back(std::make_pair(-1, 1));
-			Rot.push_back(std::make_pair(-3, 2));
-			Rot.push_back(std::make_pair(2, 11));
-			Rot.push_back(std::make_pair(1, 10));
-			Rot.push_back(std::make_pair(0, 9));
-			Rot.push_back(std::make_pair(-3, 0));
-			Rot.push_back(std::make_pair(-2, 0));
-			Rot.push_back(std::make_pair(2, 5));
-			Rot.push_back(std::make_pair(1, 4));
-			Rot.push_back(std::make_pair(0, 3));
-			for (int i = 26; i < 27; i++) {
-				Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-			}
-
-			//BP wrist right(metacarpals)
-			Rot.clear();
-			Rot.push_back(std::make_pair(-1, 2));
-			Rot.push_back(std::make_pair(-3, 3));
-			Rot.push_back(std::make_pair(2, 14));
-			Rot.push_back(std::make_pair(1, 13));
-			Rot.push_back(std::make_pair(0, 12));
-			Rot.push_back(std::make_pair(-3, 0));
-			Rot.push_back(std::make_pair(-2, 0));
-			Rot.push_back(std::make_pair(2, 5));
-			Rot.push_back(std::make_pair(1, 4));
-			Rot.push_back(std::make_pair(0, 3));
-			for (int i = 27; i < 28; i++) {
-				Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-			}
-
-			//BP thumb first (finger5joint1)
-			Rot.clear();
-			Rot.push_back(std::make_pair(-1, 3));
-			Rot.push_back(std::make_pair(-3, 4));
-			Rot.push_back(std::make_pair(2, 16));
-			Rot.push_back(std::make_pair(1, 15));
-			Rot.push_back(std::make_pair(-1, 2));
-			Rot.push_back(std::make_pair(-3, 3));
-			Rot.push_back(std::make_pair(2, 14));
-			Rot.push_back(std::make_pair(1, 13));
-			Rot.push_back(std::make_pair(0, 12));
-			Rot.push_back(std::make_pair(-3, 0));
-			Rot.push_back(std::make_pair(-2, 0));
-			Rot.push_back(std::make_pair(2, 5));
-			Rot.push_back(std::make_pair(1, 4));
-			Rot.push_back(std::make_pair(0, 3));
-
-			for (int i = 28; i < 29; i++) {
-				Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-			}
-
-			//BP thumb second (finger5joint2)
-			Rot.clear();
-			Rot.push_back(std::make_pair(-1, 4));
-			Rot.push_back(std::make_pair(-3, 5));
-			Rot.push_back(std::make_pair(2, 17));
-			Rot.push_back(std::make_pair(-1, 3));
-			Rot.push_back(std::make_pair(-3, 4));
-			Rot.push_back(std::make_pair(2, 16));
-			Rot.push_back(std::make_pair(1, 15));
-			Rot.push_back(std::make_pair(-1, 2));
-			Rot.push_back(std::make_pair(-3, 3));
-			Rot.push_back(std::make_pair(2, 14));
-			Rot.push_back(std::make_pair(1, 13));
-			Rot.push_back(std::make_pair(0, 12));
-			Rot.push_back(std::make_pair(-3, 0));
-			Rot.push_back(std::make_pair(-2, 0));
-			Rot.push_back(std::make_pair(2, 5));
-			Rot.push_back(std::make_pair(1, 4));
-			Rot.push_back(std::make_pair(0, 3));
-			for (int i = 29; i < 30; i++) {
-				Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-			}
-
-			//BP thumb third (finger5joint3)
-			Rot.clear();
-			Rot.push_back(std::make_pair(-1, 5));
-			Rot.push_back(std::make_pair(-3, 6));
-			Rot.push_back(std::make_pair(2, 18));
-			Rot.push_back(std::make_pair(-1, 4));
-			Rot.push_back(std::make_pair(-3, 5));
-			Rot.push_back(std::make_pair(2, 17));
-			Rot.push_back(std::make_pair(-1, 3));
-			Rot.push_back(std::make_pair(-3, 4));
-			Rot.push_back(std::make_pair(2, 16));
-			Rot.push_back(std::make_pair(1, 15));
-			Rot.push_back(std::make_pair(-1, 2));
-			Rot.push_back(std::make_pair(-3, 3));
-			Rot.push_back(std::make_pair(2, 14));
-			Rot.push_back(std::make_pair(1, 13));
-			Rot.push_back(std::make_pair(0, 12));
-			Rot.push_back(std::make_pair(-3, 0));
-			Rot.push_back(std::make_pair(-2, 0));
-			Rot.push_back(std::make_pair(2, 5));
-			Rot.push_back(std::make_pair(1, 4));
-			Rot.push_back(std::make_pair(0, 3));
-			for (int i = 30; i < 31; i++) {
-				Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-			}
-
-
+			}			
+			Backward(Bid, palm_center, Homo_mat[palm_center], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));               //BP palm center			
+			Backward(Bid, wrist_left, Homo_mat[wrist_left], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));                 //BP wrist left			
+			Backward(Bid, wrist_middle, Homo_mat[wrist_middle], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));             //BP wrist middle(carpals)			
+			Backward(Bid, thumb_mcp, Homo_mat[thumb_mcp], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));                   //BP wrist right(thumb MCP metacarpals)			
+			Backward(Bid, thumb_pip, Homo_mat[thumb_pip], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));                   //BP thumb PIP			
+			Backward(Bid, thumb_dip, Homo_mat[thumb_dip], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));                   //BP thumb DIP			
+			Backward(Bid, thumb_tip, Homo_mat[thumb_tip], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));                   //BP thumb TIP			
+			
 			//BP Finger 1-4			
 			for (int k = 0; k < 4; k++)
 			{
-				//BP Bone/Bone.001/Bone.002/Bone.003
-				Rot.clear();
-				Rot.push_back(std::make_pair(-1, 6 + k));
-				Rot.push_back(std::make_pair(-3, 7 + k));
-				Rot.push_back(std::make_pair(2, 21 + 3 * k));
-				Rot.push_back(std::make_pair(1, 20 + 3 * k));
-				Rot.push_back(std::make_pair(0, 19 + 3 * k));
-				Rot.push_back(std::make_pair(-3, 0));
-				Rot.push_back(std::make_pair(-2, 0));
-				Rot.push_back(std::make_pair(2, 5));
-				Rot.push_back(std::make_pair(1, 4));
-				Rot.push_back(std::make_pair(0, 3));
-				for (int i = 20 + k; i < 21 + k; i++) {
-					Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-                }   
-				
-				//BP fingerXjoint1
-				Rot.clear();
-				Rot.push_back(std::make_pair(-1, 10 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 11 + 3 * k));
-				Rot.push_back(std::make_pair(2, 32 + 4 * k));
-				Rot.push_back(std::make_pair(0, 31 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 6 + k));
-				Rot.push_back(std::make_pair(-3, 7 + k));
-				Rot.push_back(std::make_pair(2, 21 + 3 * k));
-				Rot.push_back(std::make_pair(1, 20 + 3 * k));
-				Rot.push_back(std::make_pair(0, 19 + 3 * k));
-				Rot.push_back(std::make_pair(-3, 0));
-				Rot.push_back(std::make_pair(-2, 0));
-				Rot.push_back(std::make_pair(2, 5));
-				Rot.push_back(std::make_pair(1, 4));
-				Rot.push_back(std::make_pair(0, 3));
-				for (int i = 4 + 5 * k; i < 4 + 5 * k + 1; i++)
-				{
-					Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-				}
-
-				//BP fingerXjoint2 
-				Rot.clear();
-				Rot.push_back(std::make_pair(-1, 11 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 12 + 3 * k));
-				Rot.push_back(std::make_pair(0, 33 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 10 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 11 + 3 * k));
-				Rot.push_back(std::make_pair(2, 32 + 4 * k));
-				Rot.push_back(std::make_pair(0, 31 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 6 + k));
-				Rot.push_back(std::make_pair(-3, 7 + k));
-				Rot.push_back(std::make_pair(2, 21 + 3 * k));
-				Rot.push_back(std::make_pair(1, 20 + 3 * k));
-				Rot.push_back(std::make_pair(0, 19 + 3 * k));
-				Rot.push_back(std::make_pair(-3, 0));
-				Rot.push_back(std::make_pair(-2, 0));
-				Rot.push_back(std::make_pair(2, 5));
-				Rot.push_back(std::make_pair(1, 4));
-				Rot.push_back(std::make_pair(0, 3));
-				for (int i = 3 + 5 * k; i < 3 + 5 * k + 1; i++) {
-					Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-				}
-
-				Rot.clear();
-				Rot.push_back(std::make_pair(-1, 12 + 5 * k));
-				Rot.push_back(std::make_pair(-1, 11 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 12 + 3 * k));
-				Rot.push_back(std::make_pair(0, 33 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 10 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 11 + 3 * k));
-				Rot.push_back(std::make_pair(2, 32 + 4 * k));
-				Rot.push_back(std::make_pair(0, 31 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 6 + k));
-				Rot.push_back(std::make_pair(-3, 7 + k));
-				Rot.push_back(std::make_pair(2, 21 + 3 * k));
-				Rot.push_back(std::make_pair(1, 20 + 3 * k));
-				Rot.push_back(std::make_pair(0, 19 + 3 * k));
-				Rot.push_back(std::make_pair(-3, 0));
-				Rot.push_back(std::make_pair(-2, 0));
-				Rot.push_back(std::make_pair(2, 5));
-				Rot.push_back(std::make_pair(1, 4));
-				Rot.push_back(std::make_pair(0, 3));
-				for (int i = 2 + 5 * k; i < 2 + 5 * k + 1; i++) {
-					Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-				}
-
-				//BP fingerXjoint3
-				Rot.clear();
-				Rot.push_back(std::make_pair(-1, 13 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 13 + 3 * k));
-				Rot.push_back(std::make_pair(0, 34 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 12 + 5 * k));
-				Rot.push_back(std::make_pair(-1, 11 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 12 + 3 * k));
-				Rot.push_back(std::make_pair(0, 33 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 10 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 11 + 3 * k));
-				Rot.push_back(std::make_pair(2, 32 + 4 * k));
-				Rot.push_back(std::make_pair(0, 31 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 6 + k));
-				Rot.push_back(std::make_pair(-3, 7 + k));
-				Rot.push_back(std::make_pair(2, 21 + 3 * k));
-				Rot.push_back(std::make_pair(1, 20 + 3 * k));
-				Rot.push_back(std::make_pair(0, 19 + 3 * k));
-				Rot.push_back(std::make_pair(-3, 0));
-				Rot.push_back(std::make_pair(-2, 0));
-				Rot.push_back(std::make_pair(2, 5));
-				Rot.push_back(std::make_pair(1, 4));
-				Rot.push_back(std::make_pair(0, 3));
-				for (int i = 1 + 5 * k; i < 1 + 5 * k + 1; i++) {
-					Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-				}
-
-				Rot.clear();
-				Rot.push_back(std::make_pair(-1, 14 + 5 * k));
-				Rot.push_back(std::make_pair(-1, 13 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 13 + 3 * k));
-				Rot.push_back(std::make_pair(0, 34 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 12 + 5 * k));
-				Rot.push_back(std::make_pair(-1, 11 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 12 + 3 * k));
-				Rot.push_back(std::make_pair(0, 33 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 10 + 5 * k));
-				Rot.push_back(std::make_pair(-3, 11 + 3 * k));
-				Rot.push_back(std::make_pair(2, 32 + 4 * k));
-				Rot.push_back(std::make_pair(0, 31 + 4 * k));
-				Rot.push_back(std::make_pair(-1, 6 + k));
-				Rot.push_back(std::make_pair(-3, 7 + k));
-				Rot.push_back(std::make_pair(2, 21 + 3 * k));
-				Rot.push_back(std::make_pair(1, 20 + 3 * k));
-				Rot.push_back(std::make_pair(0, 19 + 3 * k));
-				Rot.push_back(std::make_pair(-3, 0));
-				Rot.push_back(std::make_pair(-2, 0));
-				Rot.push_back(std::make_pair(2, 5));
-				Rot.push_back(std::make_pair(1, 4));
-				Rot.push_back(std::make_pair(0, 3));
-				for (int i = 0 + 5 * k; i < 0 + 5 * k + 1; i++) {
-					Update(Rot, i, bottom_data, Bid, Vec(0, 0, 0, 1));
-				}
+				//BP finger MCP finger PIP first finger PIP second finger DIP finger TIP		
+				Backward(Bid, finger_mcp_start + k, Homo_mat[finger_mcp_start + k], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));
+				Backward(Bid, finger_base_start + num_of_bones_each_finger * k, Homo_mat[finger_base_start + num_of_bones_each_finger * k], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));
+				Backward(Bid, finger_pip_first_start + num_of_bones_each_finger * k, Homo_mat[finger_pip_first_start + num_of_bones_each_finger * k], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));
+				Backward(Bid, finger_pip_second_start + num_of_bones_each_finger * k, Homo_mat[finger_pip_second_start + num_of_bones_each_finger * k], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));
+				Backward(Bid, finger_dip_start + num_of_bones_each_finger * k, Homo_mat[finger_dip_start + num_of_bones_each_finger * k], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));
+				Backward(Bid, finger_tip_start + num_of_bones_each_finger * k, Homo_mat[finger_tip_start + num_of_bones_each_finger * k], bottom_data, Vec(0.0, 0.0, 0.0, 1.0));				
 			}	
 
 			//\frac{\partial loss}{\partial d[j]}= \sum_{i=1}^31 {\frac{\partial loss}{\partial x[i][0]} * \frac{\partial x[i][0]}{\partial d[j]}+
 			//                         							  \frac{\partial loss}{\partial x[i][1]} * \frac{\partial x[i][1]}{\partial d[j]}+
 			//                                                    \frac{\partial loss}{\partial x[i][2]} * \frac{\partial x[i][2]}{\partial d[j]} }
-			for (int j = 0; j < 47; j++) {
+			for (int j = 0; j < ParamNum; j++) {
 				bottom_diff[Bid + j] = 0;
-				for (int i = 0; i < 31; i++) {
-					int Tid = t * 93 + i * 3;
+				for (int i = 0; i < JointNum; i++) {
+					int Tid = t * JointNum * 3 + i * 3;
 					bottom_diff[Bid + j] += f[i][j][0] * top_diff[Tid] + f[i][j][1] * top_diff[Tid + 1] + f[i][j][2] * top_diff[Tid + 2];
 				}
 		    }
 		}
 	}
 }
-
-
-
 
 #ifdef CPU_ONLY
 STUB_GPU(DeepHandModelLayer);
@@ -546,4 +337,3 @@ STUB_GPU(DeepHandModelLayer);
 INSTANTIATE_CLASS(DeepHandModelLayer);
 REGISTER_LAYER_CLASS(DeepHandModel);
 }  // namespace caffe
-

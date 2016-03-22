@@ -1,0 +1,12 @@
+test_iter: 129
+test_interval: 200
+net: "DeepModel.prototxt"
+base_lr: 0.003
+momentum: 0.9
+lr_policy: "inv"
+
+display: 20
+max_iter: 1000000
+snapshot: 10000
+snapshot_prefix: "models/DeepModel"
+solver_mode: GPU

@@ -614,6 +614,7 @@
     <ClInclude Include="..\..\src\caffe\proto\caffe.pb.h">
       <Filter>proto</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\caffe\HandDefine.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="header">

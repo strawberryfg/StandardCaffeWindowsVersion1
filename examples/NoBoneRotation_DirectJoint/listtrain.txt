@@ -1,0 +1,3 @@
+../../data/NYU/train_data_0.h5
+../../data/NYU/train_data_1.h5
+../../data/NYU/train_data_2.h5

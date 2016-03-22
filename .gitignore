@@ -5,6 +5,8 @@
 *.lo
 *.o
 *.cuo
+*.obj
+
 
 # Compiled Dynamic libraries
 *.so
@@ -113,3 +115,5 @@ MANIFEST-*
 Inceptionism
 
 *.vcxproj
+*.exe
+*.h5

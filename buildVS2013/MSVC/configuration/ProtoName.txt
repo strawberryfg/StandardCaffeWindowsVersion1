@@ -1,0 +1,8 @@
+7
+Evaluation/NoBoneRotation/DeepModel.prototxt
+Evaluation/NoBoneRotation_dofconstrained/DeepModel.prototxt
+Evaluation/NoBoneRotation_DP/DeepModel.prototxt
+Evaluation/NoBoneRotation_JointLearning/DeepModel.prototxt
+Evaluation/NoBoneRotation_DirectJoint/DeepModel.prototxt
+Evaluation/NoBoneRotation_Binary_DirectJoint/DeepModel.prototxt
+Evaluation/NoBoneRotation_Binary_Model/DeepModel.prototxt

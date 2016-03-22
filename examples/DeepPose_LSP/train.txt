@@ -1,4 +1,0 @@
-D:\Datasets\LSP\hdf5\data_0.h5
-D:\Datasets\LSP\hdf5\data_1.h5
-D:\Datasets\LSP\hdf5\data_2.h5
-D:\Datasets\LSP\hdf5\data_3.h5
