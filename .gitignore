@@ -80,7 +80,7 @@ bin
 *.sdf
 *.opensdf
 *.pdb
-*.rar
+
 *.lib
 *.dll
 *.exp
