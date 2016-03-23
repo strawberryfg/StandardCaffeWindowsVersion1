@@ -1,2 +1,0 @@
-../../data/NYU/binary/test_1_binary_0.h5
-../../data/NYU/binary/test_2_binary_0.h5

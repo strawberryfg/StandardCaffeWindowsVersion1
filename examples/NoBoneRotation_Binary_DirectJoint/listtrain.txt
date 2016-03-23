@@ -1,3 +1,0 @@
-../../data/NYU/binary/train_binary_0.h5
-../../data/NYU/binary/train_binary_1.h5
-../../data/NYU/binary/train_binary_2.h5
